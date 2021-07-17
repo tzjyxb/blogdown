@@ -3,7 +3,7 @@ title: Build a blog via blogdown and Netlify
 author: Bin Xu
 date: '2021-07-15'
 slug: build-a-blog-via-blogdown-and-netlify
-categories: []
+categories: ["blogdown"]
 tags: []
 ---
 
