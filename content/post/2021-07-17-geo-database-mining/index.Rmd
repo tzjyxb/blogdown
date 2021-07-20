@@ -1,0 +1,453 @@
+---
+title: GEO database mining
+author: 'Bin Xu'
+date: '2021-07-17'
+slug: geo-database-mining
+categories: ["生信"]
+tags: ["GEO", "生信技能树"]
+---
+
+本笔记来自于**生信技能树**B站视频[《GEO数据库挖掘》](https://www.bilibili.com/video/BV1is411H7Hq)
+
+## 下载表达矩阵(GEOquery)
+
+本部分笔记来源于我的为知笔记《一文就够-GEO数据库介绍及下载》
+
+### 安装包
+```{r 安装包, eval=FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("GEOquery")
+```
+
+```{r 加载包}
+# 加载包
+suppressMessages(library(GEOquery))
+```
+
+### 下载表达矩阵
+
+#### GEOquery()函数
+- 可以指定`GEO = `参数以在线下载数据集（GDS、GSE、GSM、GPL均可，但得到的数据对象不同），也可以指定`filename = `参数读取已经下载的文件，两个参数不能同时指定，只能指定其中一个
+  - GSE号返回的对象直接就是expression set对象
+  - 指定`GEO = `和指定`filename = `得到的对象的数据构成不一样，指定`filename = `见笔记《读取下载好的表达矩阵(.txt.gz格式)》
+- `destdir`参数指定下载文件的存放目录
+- 一些默认参数:
+  - `GSEMatrix = TRUE`: 下载Series Matrix files，即表达矩阵
+  - `AnnotGPL = FALSE`: 默认即可
+  - `getGPL = TRUE`: 下载GPL平台的注释信息，You may want to set this to FALSE if you know that you are going to annotate your featureData using Bioconductor tools rather than relying on information provided through NCBI GEO.
+
+```{r 下载表达矩阵, cache=TRUE}
+gset <- getGEO(GEO = "GSE42872", destdir = ".", getGPL = F)
+
+gset
+```
+
+#### 对expression set对象进行操作的函数
+`GEOquery()`中给定GSE号返回的对象为expression set
+
+- `sampleNames()`得到样本名
+- `exprs()`得到表达矩阵
+- `pData()`access the phenotypic data (e.g., covariates) and meta-data (e.g., descriptions of covariates) associated with an experiment.
+
+```{r 获取表达矩阵和描述信息}
+sampleNames(gset)
+
+# 获得表达矩阵
+#  如果一个GSE中有多个平台的数据，那么`gset[[1]]`对应第一个平台的数据，`gset[[2]]`对应第二个平台的数据，以此类推
+exprSet <- exprs(gset$GSE42872_series_matrix.txt.gz) # or exprs(gset[[1]])
+exprSet[1:6, 1:6]
+
+# 获得描述信息
+pdata <- pData(gset$GSE42872_series_matrix.txt.gz) # or exprs(gset[[1]])
+pdata[1:6, 1:6]
+```
+
+### 下载GPL数据
+- `Meta()`函数可以得到描述信息
+- `Table()`函数可以得到表达矩阵
+
+```{r 下载GPL数据, cache=TRUE}
+gpl <- getGEO("GPL6244", GSEMatrix = F, destdir = ".")
+
+names(Meta(gpl)) # 应该没啥用
+
+gpl_annot <- Table(gpl)
+
+# 不同芯片平台返回的对象需要自行查看列名，然后选择感兴趣信息即可
+colnames(gpl_annot)
+
+gpl_annot[2, c("ID", "gene_assignment", "mrna_assignment")]
+```
+
+## 读取下载好的表达矩阵(.txt.gz格式)
+
+### 方法一：GEOquery包
+个人觉得这种方法更方便
+
+```{r}
+gset2 <- getGEO(filename = "GSE42872_series_matrix.txt.gz", 
+                destdir = ".", 
+                getGPL = F)
+
+gset2
+```
+
+以下如有疑问，详见本笔记的第一部分：[下载表达矩阵(GEOquery)](#下载表达矩阵(GEOquery))
+
+```{r}
+sampleNames(gset2)
+
+# 获得表达矩阵
+exprSet2 <- exprs(gset2)
+exprSet2[1:6, 1:6]
+
+# 获得描述信息
+pdata2 <- pData(gset2)
+pdata2[1:6, 1:6]
+```
+
+### 方法二：read.table()函数
+先打开表达矩阵查看一下数据格式，然后用`read.table()`函数读取
+
+`read.table()`函数可以直接读取`.txt.gz`文件，但似乎不能直接用Notepad3打开，打开后乱码，解压后再打开正常显示
+
+该函数常用的参数详见函数帮助
+
+个人觉得相比方法一更繁琐，需要注意的是，表达矩阵读取之后，行名转化为了单独的列
+
+```{r}
+exprSet3 <- read.table("GSE42872_series_matrix.txt.gz", sep = "\t", comment.char = "!", header = T)
+exprSet3[1:6, 1:6]
+
+rownames(exprSet3) <- exprSet3[, 1]
+exprSet3 <- exprSet3[, -1]
+exprSet3[1:6, 1:6]
+```
+
+```{r, include=FALSE}
+rm(gset2, exprSet2, exprSet3, pdata2)
+```
+
+## ID转换
+
+通常会出现多个探针对应同一个基因，取平均值、最大值、中位数等；一个探针也可以对应多个基因
+
+一般有三种方法可以得到芯片探针与gene的对应关系：
+
+1. 金标准当然是去基因芯片的厂商的官网直接去下载啦！！！
+2. 一种是直接用bioconductor的包
+3. 一种是从NCBI里面下载文件来解析好！
+
+首先，我们说官网，肯定可以找到，不然这种芯片出来就没有意义了！
+
+然后，我们看看NCBI下载的，会比较大：http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GPL6947
+
+这两种方法都比较麻烦，需要一个个的来！
+
+### 使用bioconductor中的包
+常用的芯片平台对应的包可以在[这里](https://www.jianshu.com/p/fb22d4c9ddf9)找，现摘录如下（library包时在包名后加上`.db`）
+
+如果这里找不到，试试Google`GPLxxxx R package`
+
+```R
+>         gpl           organism                   bioc_package
+> 
+> 1     GPL32       Mus musculus                        mgu74a
+> 
+> 2     GPL33       Mus musculus                        mgu74b
+> 
+> 3     GPL34       Mus musculus                        mgu74c
+> 
+> 6     GPL74       Homo sapiens                        hcg110
+> 
+> 7     GPL75       Mus musculus                     mu11ksuba
+> 
+> 8     GPL76       Mus musculus                     mu11ksubb
+> 
+> 9     GPL77       Mus musculus                     mu19ksuba
+> 
+> 10    GPL78       Mus musculus                     mu19ksubb
+> 
+> 11    GPL79       Mus musculus                     mu19ksubc
+> 
+> 12    GPL80       Homo sapiens                        hu6800
+> 
+> 13    GPL81       Mus musculus                      mgu74av2
+> 
+> 14    GPL82       Mus musculus                      mgu74bv2
+> 
+> 15    GPL83       Mus musculus                      mgu74cv2
+> 
+> 16    GPL85  Rattus norvegicus                        rgu34a
+> 
+> 17    GPL86  Rattus norvegicus                        rgu34b
+> 
+> 18    GPL87  Rattus norvegicus                        rgu34c
+> 
+> 19    GPL88  Rattus norvegicus                         rnu34
+> 
+> 20    GPL89  Rattus norvegicus                         rtu34
+> 
+> 22    GPL91       Homo sapiens                      hgu95av2
+> 
+> 23    GPL92       Homo sapiens                        hgu95b
+> 
+> 24    GPL93       Homo sapiens                        hgu95c
+> 
+> 25    GPL94       Homo sapiens                        hgu95d
+> 
+> 26    GPL95       Homo sapiens                        hgu95e
+> 
+> 27    GPL96       Homo sapiens                       hgu133a
+> 
+> 28    GPL97       Homo sapiens                       hgu133b
+> 
+> 29    GPL98       Homo sapiens                     hu35ksuba
+> 
+> 30    GPL99       Homo sapiens                     hu35ksubb
+> 
+> 31   GPL100       Homo sapiens                     hu35ksubc
+> 
+> 32   GPL101       Homo sapiens                     hu35ksubd
+> 
+> 36   GPL201       Homo sapiens                       hgfocus
+> 
+> 37   GPL339       Mus musculus                       moe430a
+> 
+> 38   GPL340       Mus musculus                     mouse4302
+> 
+> 39   GPL341  Rattus norvegicus                       rae230a
+> 
+> 40   GPL342  Rattus norvegicus                       rae230b
+> 
+> 41   GPL570       Homo sapiens                   hgu133plus2
+> 
+> 42   GPL571       Homo sapiens                      hgu133a2
+> 
+> 43   GPL886       Homo sapiens                     hgug4111a
+> 
+> 44   GPL887       Homo sapiens                     hgug4110b
+> 
+> 45  GPL1261       Mus musculus                    mouse430a2
+> 
+> 49  GPL1352       Homo sapiens                       u133x3p
+> 
+> 50  GPL1355  Rattus norvegicus                       rat2302
+> 
+> 51  GPL1708       Homo sapiens                     hgug4112a
+> 
+> 54  GPL2891       Homo sapiens                       h20kcod
+> 
+> 55  GPL2898  Rattus norvegicus                     adme16cod
+> 
+> 60  GPL3921       Homo sapiens                     hthgu133a
+> 
+> 63  GPL4191       Homo sapiens                       h10kcod
+> 
+> 64  GPL5689       Homo sapiens                     hgug4100a
+> 
+> 65  GPL6097       Homo sapiens               illuminaHumanv1
+> 
+> 66  GPL6102       Homo sapiens               illuminaHumanv2
+> 
+> 67  GPL6244       Homo sapiens   hugene10sttranscriptcluster
+> 
+> 68  GPL6947       Homo sapiens               illuminaHumanv3
+> 
+> 69  GPL8300       Homo sapiens                      hgu95av2
+> 
+> 70  GPL8490       Homo sapiens   IlluminaHumanMethylation27k
+> 
+> 71 GPL10558       Homo sapiens               illuminaHumanv4
+> 
+> 72 GPL11532       Homo sapiens   hugene11sttranscriptcluster
+> 
+> 73 GPL13497       Homo sapiens         HsAgilentDesign026652
+> 
+> 74 GPL13534       Homo sapiens  IlluminaHumanMethylation450k
+> 
+> 75 GPL13667       Homo sapiens                        hgu219
+> 
+> 76 GPL15380       Homo sapiens      GGHumanMethCancerPanelv1
+> 
+> 77 GPL15396       Homo sapiens                     hthgu133b
+> 
+> 78 GPL17897       Homo sapiens                     hthgu133a
+```
+
+读入示例数据，该GSE对应GPL6244
+```{r}
+gset <- getGEO(filename = "GSE42872_series_matrix.txt.gz", 
+               destdir = ".", 
+               getGPL = F)
+
+exprSet <- exprs(gset)
+```
+
+```{r, eval=FALSE}
+# 安装包
+BiocManager::install("hugene10sttranscriptcluster.db")
+```
+
+```{r}
+# 载入包
+suppressMessages(library(hugene10sttranscriptcluster.db))
+```
+
+```{r}
+# 通过?hugene10sttranscriptcluster.db
+# 查看包里面有那些内容
+ls("package:hugene10sttranscriptcluster.db")
+```
+
+```{r}
+# 探针与symbol的对应信息
+ids <- toTable(hugene10sttranscriptclusterSYMBOL)
+head(ids)
+```
+
+```{r}
+length(unique(ids$symbol)) # 基因个数
+
+tail(sort(table(ids$symbol))) # 查看对应多个探针的基因（探针个数最多的6个）
+
+table(sort(table(ids$symbol))) # 查看相应探针个数的基因各有多少个
+
+plot(table(sort(table(ids$symbol)))) # 可视化上一行代码
+```
+
+```{r}
+# TRUE代表表达矩阵中的探针在package的注释文件中
+table(rownames(exprSet) %in% ids$probe_id)
+
+dim(exprSet)
+
+# 得到包含注释信息的探针的表达矩阵
+exprSet <- exprSet[rownames(exprSet) %in% ids$probe_id, ]
+dim(exprSet)
+```
+
+`match()`：匹配两个向量，返回第二个向量在第一个向量匹配位置的下标值
+```{r}
+nrow(exprSet) == nrow(ids)
+
+# 使注释文件中的探针顺序与表达矩阵中的探针顺序一致
+ids <- ids[match(rownames(exprSet), ids$probe_id), ]
+
+all(rownames(exprSet) == ids$probe_id)
+```
+
+对于一个基因对应多个探针的情况，本例取平均值最大值对应的探针
+
+`by(data, INDICES, FUN, …, simplify = TRUE)`：
+
+将data中的数据，按照INDICES里面的内容拆分成若干个小的data frame，并且在每一小块data frame上应用FUN函数
+```{r}
+probes <- by(exprSet, 
+             ids$symbol,
+             function(x) rownames(x)[which.max(rowMeans(x))])
+
+class(probes)
+
+probes <- as.character(probes)
+
+exprSet <- exprSet[rownames(exprSet) %in% probes, ]
+dim(exprSet)
+```
+
+在表达矩阵中加入基因名
+```{r}
+dim(exprSet)
+
+rownames(exprSet) <- ids[match(rownames(exprSet), ids$probe_id), 2]
+
+dim(exprSet)
+
+exprSet[1:2, 1:3]
+```
+
+### 如果bioconductor中没有对应的包
+需要自行下载GPL注释文件，自行处理再注释
+
+详见本笔记的第一部分：[下载表达矩阵(GEOquery)](#下载表达矩阵(GEOquery))
+
+## 表达矩阵质控
+
+读入示例数据
+
+该部分内容详见本笔记的第三部分：[ID转换](#ID转换)
+```{r, eval=FALSE}
+BiocManager::install('CLL')
+```
+
+### 读入表达矩阵
+```{r}
+suppressPackageStartupMessages(library(CLL))
+
+data(sCLLex)
+
+sCLLex
+
+exprSet <- exprs(sCLLex)
+
+sampleNames(sCLLex)
+
+pdata <- pData(sCLLex)
+head(pdata)
+
+group_list <- as.character(pdata[ ,2])
+
+dim(exprSet)
+
+exprSet[1:5, 1:5]
+```
+
+### 基因注释
+```{r, eval=FALSE}
+BiocManager::install('hgu95av2.db')
+```
+
+```{r}
+library(hgu95av2.db)
+ls("package:hgu95av2.db") 
+
+ids <- toTable(hgu95av2SYMBOL)
+head(ids)
+# save(ids, exprSet, pdata, file = 'input.Rdata')
+
+length(unique(ids$symbol))
+tail(sort(table(ids$symbol)))
+table(sort(table(ids$symbol)))
+
+plot(table(sort(table(ids$symbol))))
+
+table(rownames(exprSet) %in% ids$probe_id)
+dim(exprSet)
+exprSet <- exprSet[rownames(exprSet) %in% ids$probe_id,]
+dim(exprSet)
+
+ids <- ids[match(rownames(exprSet), ids$probe_id),]
+head(ids)
+exprSet[1:5,1:5]
+```
+
+```{r}
+probes <- by(exprSet, ids$symbol,
+             function(x) rownames(x)[which.max(rowMeans(x))])
+probes<- as.character(probes)
+
+dim(exprSet)
+
+exprSet <- exprSet[rownames(exprSet) %in% probes, ]
+dim(exprSet)
+ 
+rownames(exprSet) <- ids[match(rownames(exprSet), ids$probe_id), 2]
+
+exprSet[1:5,1:5]
+```
+
+[表达矩阵可视化大全/basic visualization for expression matrix](http://bio-info-trainee.com/tmp/basic_visualization_for_expression_matrix.html)
+
+如该网页无法打开，可访问[本地文件](./basic visualization for expression matrix.html)
