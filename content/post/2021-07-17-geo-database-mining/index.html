@@ -5,6 +5,8 @@ date: '2021-07-17'
 slug: geo-database-mining
 categories: ["生信"]
 tags: ["GEO", "生信技能树"]
+editor_options: 
+  chunk_output_type: inline
 ---
 
 <script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
@@ -651,7 +653,280 @@ exprSet[1:5,1:5]</code></pre>
 ## CYP2C19  3.309294  3.318466  3.354423  3.327130  3.365113
 ## CXCR5    7.544884  7.671801  7.474025  7.152482  6.902932
 ## DUSP1    5.083793  7.610593  7.631311  6.518594  5.059087</code></pre>
-<p><a href="http://bio-info-trainee.com/tmp/basic_visualization_for_expression_matrix.html">表达矩阵可视化大全/basic visualization for expression matrix</a></p>
+</div>
+<div id="表达矩阵质控-1" class="section level3">
+<h3>表达矩阵质控</h3>
+<p>本部分的代码可参考：<a href="http://www.bio-info-trainee.com/3415.html">生信人的20个R语言习题的答案</a></p>
+<p>画图代码可另外参考：<a href="http://bio-info-trainee.com/tmp/basic_visualization_for_expression_matrix.html">basic visualization for expression matrix</a></p>
 <p>如该网页无法打开，可访问<a href="./basic%20visualization%20for%20expression%20matrix.html">本地文件</a></p>
+<div id="检查管家基因的表达量" class="section level4">
+<h4>检查管家基因的表达量</h4>
+<p>正常情况下，管家基因的表达量很高</p>
+<pre class="r"><code># 查看某样本所有的基因表达情况，为管家基因的表达量提供参考
+range(exprSet[, 1])</code></pre>
+<pre><code>## [1] -0.1648619 14.0428327</code></pre>
+<pre class="r"><code>exprSet[&quot;GAPDH&quot;, ] # range(~)</code></pre>
+<pre><code>## CLL11.CEL CLL12.CEL CLL13.CEL CLL14.CEL CLL15.CEL CLL16.CEL CLL17.CEL CLL18.CEL 
+##  11.43349  10.62135  11.64079  11.15077  11.58473  11.69951  11.40295  10.35316 
+## CLL19.CEL CLL20.CEL CLL21.CEL CLL22.CEL CLL23.CEL CLL24.CEL  CLL2.CEL  CLL3.CEL 
+##  10.78962  11.20747  11.66021  10.98364  11.57492  10.97744  11.33880  11.46153 
+##  CLL4.CEL  CLL5.CEL  CLL6.CEL  CLL7.CEL  CLL8.CEL  CLL9.CEL 
+##  11.84727  11.40218  11.57526  11.98662  10.65648  11.29905</code></pre>
+<pre class="r"><code>exprSet[&quot;ACTB&quot;, ]</code></pre>
+<pre><code>## CLL11.CEL CLL12.CEL CLL13.CEL CLL14.CEL CLL15.CEL CLL16.CEL CLL17.CEL CLL18.CEL 
+##  12.54249  13.27134  13.06524  12.78388  12.59492  11.76774  12.54986  12.52084 
+## CLL19.CEL CLL20.CEL CLL21.CEL CLL22.CEL CLL23.CEL CLL24.CEL  CLL2.CEL  CLL3.CEL 
+##  12.34940  11.61258  12.85986  12.70779  13.20979  12.28594  13.04701  12.78624 
+##  CLL4.CEL  CLL5.CEL  CLL6.CEL  CLL7.CEL  CLL8.CEL  CLL9.CEL 
+##  12.62297  12.56226  12.94839  12.37486  12.70010  12.78858</code></pre>
+</div>
+<div id="基因的表达量是否可比boxplot" class="section level4">
+<h4>基因的表达量是否可比(boxplot)</h4>
+<pre class="r"><code>library(reshape2)
+library(ggplot2)</code></pre>
+<p>数据变形</p>
+<p><code>rep(x, time = , length = , each = ,)</code></p>
+<p>参数说明：</p>
+<ul>
+<li>x：代表的是你要进行复制的对象，可以是一个向量或者是一个因子</li>
+<li>times：代表的是复制的次数，只能为正数。负数以及NA值都会为错误值。复制是指的是对整个向量进行复制</li>
+<li>each：代表的是对向量中的每个元素进行复制的次数</li>
+<li>length.out：代表的是最终输出向量的长度</li>
+</ul>
+<p>示例：</p>
+<pre class="r"><code>rep(1:4, 2)  #对向量（1,2,3,4）复制两次
+[1] 1 2 3 4 1 2 3 4
+rep(1:4, each = 2)   #对向量（1,2,3,4）中的每个元素复制两次
+[1] 1 1 2 2 3 3 4 4
+rep(1:4, each = 2, length.out = 4)  #最后输出向量的长度为4
+[1] 1 1 2 2</code></pre>
+<pre class="r"><code>exprSet_L &lt;- melt(exprSet)
+colnames(exprSet_L) &lt;- c(&#39;probe&#39;,&#39;sample&#39;,&#39;value&#39;)
+exprSet_L$group &lt;- rep(group_list, each = nrow(exprSet))
+head(exprSet_L)</code></pre>
+<pre><code>##     probe    sample    value    group
+## 1   MAPK3 CLL11.CEL 5.743132 progres.
+## 2    TIE1 CLL11.CEL 2.285143 progres.
+## 3 CYP2C19 CLL11.CEL 3.309294 progres.
+## 4   CXCR5 CLL11.CEL 7.544884 progres.
+## 5   DUSP1 CLL11.CEL 5.083793 progres.
+## 6   MMP10 CLL11.CEL 3.252213 progres.</code></pre>
+<p>每个样本中的基因表达量分布要相似</p>
+<p>如果分布不相似，需要用<code>sva</code>package校正</p>
+<p>以下为不同的展示方式</p>
+<pre class="r"><code>ggplot(exprSet_L, aes(x = sample, y = value, fill = group)) + 
+  geom_boxplot()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-1.png" width="672" /></p>
+<pre class="r"><code>ggplot(exprSet_L, aes(x = sample, y = value, fill = group)) +
+  geom_violin()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-2.png" width="672" /></p>
+<pre class="r"><code>ggplot(exprSet_L, aes(value, fill = group)) +
+  geom_histogram(bins = 200) + 
+  facet_wrap(~ sample, nrow = 4)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-3.png" width="672" /></p>
+<pre class="r"><code>ggplot(exprSet_L, aes(value, fill = group)) +
+  geom_density() + 
+  facet_wrap(~ sample, nrow = 4)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-4.png" width="672" /></p>
+<pre class="r"><code>ggplot(exprSet_L, aes(value, fill = group)) +
+  geom_density() </code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-5.png" width="672" /></p>
+<pre class="r"><code>p &lt;- ggplot(exprSet_L, aes(x = sample, y = value, fill = group)) + 
+  geom_boxplot()
+
+p + 
+  stat_summary(fun = &quot;mean&quot;, geom = &quot;point&quot;, 
+               shape = 23, size = 3, fill = &quot;red&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-6.png" width="672" /></p>
+<pre class="r"><code>p + 
+  theme_set(theme_set(theme_bw(base_size = 20)))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-7.png" width="672" /></p>
+<pre class="r"><code>p + 
+  theme(text = element_text(face = &#39;bold&#39;),
+        axis.text.x = element_text(angle = 30, hjust = 1), 
+        axis.title = element_blank())</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-8.png" width="672" /></p>
+</div>
+<div id="聚类图" class="section level4">
+<h4>聚类图</h4>
+<p>无监督聚类得到的结果应该能把实验组和对照组比较好的分开</p>
+<pre class="r"><code># 此处对列名重命名的目的是为了图片易读
+exprSetx &lt;- exprSet
+colnames(exprSetx) &lt;- paste(group_list, 1:22, sep = &#39;&#39;)
+
+# Define nodePar
+nodePar &lt;- list(lab.cex = 0.6, pch = c(NA, 19), 
+                cex = 0.7, col = &quot;blue&quot;)
+
+hc &lt;- hclust(dist(t(exprSetx))) # 视频中仅用了该行代码
+
+# par(mar=c(5,5,5,10))
+
+plot(as.dendrogram(hc), nodePar = nodePar,  horiz = TRUE)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-24-1.png" width="672" /></p>
+</div>
+<div id="pca图" class="section level4">
+<h4>PCA图</h4>
+<pre class="r"><code>BiocManager::install(&#39;ggfortify&#39;)</code></pre>
+<p>画一条线，能大致把实验组和对照组分开</p>
+<pre class="r"><code>library(ggfortify)
+
+df &lt;- as.data.frame(t(exprSet))
+df$group &lt;- group_list 
+autoplot(prcomp(df[, 1:(ncol(df) - 1)]), data = df, colour = &#39;group&#39;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-26-1.png" width="672" /></p>
+<p>视频中并未展示如下代码</p>
+<pre class="r"><code>library(&quot;FactoMineR&quot;) # 画主成分分析图需要加载这两个包
+library(&quot;factoextra&quot;)</code></pre>
+<pre><code>## Welcome! Want to learn more? See two factoextra-related books at https://goo.gl/ve3WBa</code></pre>
+<pre class="r"><code># 现在df最后一列是group_list，需要重新赋值给一个dat.pca，这个矩阵是不含有分组信息的
+dat.pca &lt;- PCA(df[, -ncol(df)], graph = FALSE)
+
+fviz_pca_ind(dat.pca,
+             geom.ind = &quot;point&quot;, # show points only (nbut not &quot;text&quot;)
+             col.ind = group_list, # color by groups
+             # palette = c(&quot;#00AFBB&quot;, &quot;#E7B800&quot;),
+             addEllipses = TRUE, # Concentration ellipses
+             legend.title = &quot;Groups&quot;
+)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-27-1.png" width="672" /></p>
+</div>
+</div>
+<div id="差异分析limma" class="section level3">
+<h3>差异分析(limma)</h3>
+<p>此部分代码参考：<a href="http://www.bio-info-trainee.com/bioconductor_China/software/limma.html">用limma对芯片数据做差异分析</a></p>
+<p>如该网页无法打开，可打开<a href="./用limma对芯片数据做差异分析.html">本地文件</a></p>
+<pre class="r"><code>suppressMessages(library(limma))</code></pre>
+<p>制作分组矩阵</p>
+<pre class="r"><code>design &lt;- model.matrix(~ 0 + factor(group_list))
+
+# 查看一下顺序有没有搞反
+colnames(design) &lt;- levels(factor(group_list))
+rownames(design) &lt;- colnames(exprSet)
+design</code></pre>
+<pre><code>##           progres. stable
+## CLL11.CEL        1      0
+## CLL12.CEL        0      1
+## CLL13.CEL        1      0
+## CLL14.CEL        1      0
+## CLL15.CEL        1      0
+## CLL16.CEL        1      0
+## CLL17.CEL        0      1
+## CLL18.CEL        0      1
+## CLL19.CEL        1      0
+## CLL20.CEL        0      1
+## CLL21.CEL        1      0
+## CLL22.CEL        0      1
+## CLL23.CEL        1      0
+## CLL24.CEL        0      1
+## CLL2.CEL         0      1
+## CLL3.CEL         1      0
+## CLL4.CEL         1      0
+## CLL5.CEL         1      0
+## CLL6.CEL         1      0
+## CLL7.CEL         1      0
+## CLL8.CEL         1      0
+## CLL9.CEL         0      1
+## attr(,&quot;assign&quot;)
+## [1] 1 1
+## attr(,&quot;contrasts&quot;)
+## attr(,&quot;contrasts&quot;)$`factor(group_list)`
+## [1] &quot;contr.treatment&quot;</code></pre>
+<p>制作差异比较矩阵</p>
+<pre class="r"><code># 查看一下顺序有没有搞反
+contrast.matrix &lt;- makeContrasts(paste0(unique(group_list), 
+                                        collapse = &quot;-&quot;),
+                                 levels = design)
+
+# 这个矩阵声明，我们要把progres.组跟stable进行差异分析比较
+contrast.matrix</code></pre>
+<pre><code>##           Contrasts
+## Levels     progres.-stable
+##   progres.               1
+##   stable                -1</code></pre>
+<p>进行差异分析</p>
+<pre class="r"><code># step1
+fit &lt;- lmFit(exprSet, design)
+
+# step2
+fit2 &lt;- contrasts.fit(fit, contrast.matrix)
+
+# 这一步很重要，大家可以自行看看效果
+fit2 &lt;- eBayes(fit2)  ## default no trend !!!
+#eBayes() with trend=TRUE
+
+# step3
+tempOutput &lt;- topTable(fit2, coef = 1, n = Inf)
+nrDEG &lt;- na.omit(tempOutput)
+head(nrDEG)</code></pre>
+<pre><code>##              logFC  AveExpr         t      P.Value  adj.P.Val        B
+## TBC1D2B -1.0284628 5.620700 -5.837748 8.228423e-06 0.02282628 3.352549
+## CLIC1    0.9888221 9.954273  5.773178 9.545919e-06 0.02282628 3.231487
+## DLEU1    1.8301554 6.950685  5.741354 1.027259e-05 0.02282628 3.171586
+## SH3BP2  -1.3835699 4.463438 -5.735847 1.040396e-05 0.02282628 3.161205
+## GPM6A    2.5471980 6.915045  5.043623 5.260547e-05 0.08915221 1.822622
+## YTHDC2  -0.5187135 7.602354 -4.873743 7.877050e-05 0.08915221 1.485155</code></pre>
+<p>再检查一下差异比较矩阵有无问题</p>
+<p>差异分析结果显示，<code>TBC1D2B</code>在实验组低表达</p>
+<p>在原始表达矩阵中查看后发现确实如此，那么差异比较矩阵没有问题</p>
+<pre class="r"><code>temp_check &lt;- exprSet[&quot;TBC1D2B&quot;, ]
+
+names(temp_check) &lt;- group_list
+
+temp_check</code></pre>
+<pre><code>## progres.   stable progres. progres. progres. progres.   stable   stable 
+## 5.191501 6.584007 5.161696 5.021954 4.829027 5.473421 6.193658 6.835712 
+## progres.   stable progres.   stable progres.   stable   stable progres. 
+## 5.218793 6.617105 5.210030 6.197718 4.783289 5.245601 6.652838 5.247241 
+## progres. progres. progres. progres. progres.   stable 
+## 5.406573 5.832655 5.447913 4.812068 5.817831 5.874775</code></pre>
+<pre class="r"><code>write.csv(nrDEG,&quot;DEG_limma_notrend.csv&quot;, quote = F)</code></pre>
+<div id="热图" class="section level4">
+<h4>热图</h4>
+<p>根据adj.P选取前25个基因</p>
+<pre class="r"><code>suppressMessages(library(dplyr))
+
+gene4heatmap &lt;- nrDEG %&gt;% 
+  arrange(adj.P.Val) %&gt;% 
+  slice(1:25) %&gt;% 
+  rownames()</code></pre>
+<p>推荐使用这个包(?)</p>
+<pre class="r"><code>library(pheatmap)
+
+heatmap_matrix &lt;- exprSet[gene4heatmap, ]
+heatmap_matrix &lt;- t(scale(t(heatmap_matrix)))
+
+pheatmap(heatmap_matrix)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-35-1.png" width="672" /></p>
+<pre class="r"><code>gplots::heatmap.2(heatmap_matrix)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-36-1.png" width="672" /></p>
+<pre class="r"><code>heatmap(heatmap_matrix)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-37-1.png" width="672" /></p>
+</div>
+<div id="火山图" class="section level4">
+<h4>火山图</h4>
+<pre class="r"><code>with(nrDEG, plot(logFC, -log10(P.Value), pch=20, 
+                 main = &quot;Volcano plot&quot;))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-38-1.png" width="672" /></p>
+<pre class="r"><code>logFC_cutoff &lt;- with(nrDEG, mean(abs(logFC)) + 2 * sd(abs(logFC)))
+
+nrDEG$change &lt;- as.factor(
+  ifelse(nrDEG$P.Value &lt; 0.05 &amp; abs(nrDEG$logFC) &gt; logFC_cutoff,
+         ifelse(nrDEG$logFC &gt; logFC_cutoff, &#39;UP&#39;, &#39;DOWN&#39;), &#39;NOT&#39;))
+
+this_tile &lt;- paste0(&#39;Cutoff for logFC is &#39;, round(logFC_cutoff, 3),
+                    &#39;\nThe number of up gene is &#39;, nrow(nrDEG[nrDEG$change ==&#39;UP&#39;, ]),
+                    &#39;\nThe number of down gene is &#39;, nrow(nrDEG[nrDEG$change ==&#39;DOWN&#39;, ]))
+
+ggplot(data = nrDEG, aes(x = logFC, y = -log10(P.Value),  color = change)) +
+  geom_point(alpha = 0.4, size = 1.75) +
+  theme_set(theme_set(theme_bw(base_size = 20)))+
+  xlab(&quot;log2 fold change&quot;) + 
+  ylab(&quot;-log10 p-value&quot;) +
+  ggtitle(this_tile) + 
+  theme(plot.title = element_text(size = 15, hjust = 0.5)) +
+  scale_colour_manual(values = c(&#39;blue&#39;,&#39;black&#39;,&#39;red&#39;))  ## corresponding to the levels(nrDEG$change)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-39-1.png" width="672" /></p>
+</div>
 </div>
 </div>

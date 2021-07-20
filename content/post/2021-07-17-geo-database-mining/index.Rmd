@@ -5,6 +5,8 @@ date: '2021-07-17'
 slug: geo-database-mining
 categories: ["生信"]
 tags: ["GEO", "生信技能树"]
+editor_options: 
+  chunk_output_type: inline
 ---
 
 本笔记来自于**生信技能树**B站视频[《GEO数据库挖掘》](https://www.bilibili.com/video/BV1is411H7Hq)
@@ -448,6 +450,281 @@ rownames(exprSet) <- ids[match(rownames(exprSet), ids$probe_id), 2]
 exprSet[1:5,1:5]
 ```
 
-[表达矩阵可视化大全/basic visualization for expression matrix](http://bio-info-trainee.com/tmp/basic_visualization_for_expression_matrix.html)
+### 表达矩阵质控
+
+本部分的代码可参考：[生信人的20个R语言习题的答案](http://www.bio-info-trainee.com/3415.html)
+
+画图代码可另外参考：[basic visualization for expression matrix](http://bio-info-trainee.com/tmp/basic_visualization_for_expression_matrix.html)
 
 如该网页无法打开，可访问[本地文件](./basic visualization for expression matrix.html)
+
+#### 检查管家基因的表达量
+
+正常情况下，管家基因的表达量很高
+
+```{r}
+# 查看某样本所有的基因表达情况，为管家基因的表达量提供参考
+range(exprSet[, 1])
+
+exprSet["GAPDH", ] # range(~)
+exprSet["ACTB", ]
+```
+
+#### 基因的表达量是否可比(boxplot)
+
+```{r}
+library(reshape2)
+library(ggplot2)
+```
+
+数据变形
+
+`rep(x, time = , length = , each = ,)`
+
+参数说明：
+
+- x：代表的是你要进行复制的对象，可以是一个向量或者是一个因子
+- times：代表的是复制的次数，只能为正数。负数以及NA值都会为错误值。复制是指的是对整个向量进行复制
+- each：代表的是对向量中的每个元素进行复制的次数
+- length.out：代表的是最终输出向量的长度
+
+示例：
+```R
+rep(1:4, 2)  #对向量（1,2,3,4）复制两次
+[1] 1 2 3 4 1 2 3 4
+rep(1:4, each = 2)   #对向量（1,2,3,4）中的每个元素复制两次
+[1] 1 1 2 2 3 3 4 4
+rep(1:4, each = 2, length.out = 4)  #最后输出向量的长度为4
+[1] 1 1 2 2
+```
+
+```{r}
+exprSet_L <- melt(exprSet)
+colnames(exprSet_L) <- c('probe','sample','value')
+exprSet_L$group <- rep(group_list, each = nrow(exprSet))
+head(exprSet_L)
+```
+每个样本中的基因表达量分布要相似
+
+如果分布不相似，需要用`sva`package校正
+
+以下为不同的展示方式
+
+```{r}
+ggplot(exprSet_L, aes(x = sample, y = value, fill = group)) + 
+  geom_boxplot()
+
+ggplot(exprSet_L, aes(x = sample, y = value, fill = group)) +
+  geom_violin()
+
+ggplot(exprSet_L, aes(value, fill = group)) +
+  geom_histogram(bins = 200) + 
+  facet_wrap(~ sample, nrow = 4)
+
+ggplot(exprSet_L, aes(value, fill = group)) +
+  geom_density() + 
+  facet_wrap(~ sample, nrow = 4)
+
+ggplot(exprSet_L, aes(value, fill = group)) +
+  geom_density() 
+
+p <- ggplot(exprSet_L, aes(x = sample, y = value, fill = group)) + 
+  geom_boxplot()
+
+p + 
+  stat_summary(fun = "mean", geom = "point", 
+               shape = 23, size = 3, fill = "red")
+p + 
+  theme_set(theme_set(theme_bw(base_size = 20)))
+
+p + 
+  theme(text = element_text(face = 'bold'),
+        axis.text.x = element_text(angle = 30, hjust = 1), 
+        axis.title = element_blank())
+
+```
+
+#### 聚类图
+
+无监督聚类得到的结果应该能把实验组和对照组比较好的分开
+
+```{r}
+# 此处对列名重命名的目的是为了图片易读
+exprSetx <- exprSet
+colnames(exprSetx) <- paste(group_list, 1:22, sep = '')
+
+# Define nodePar
+nodePar <- list(lab.cex = 0.6, pch = c(NA, 19), 
+                cex = 0.7, col = "blue")
+
+hc <- hclust(dist(t(exprSetx))) # 视频中仅用了该行代码
+
+# par(mar=c(5,5,5,10))
+
+plot(as.dendrogram(hc), nodePar = nodePar,  horiz = TRUE)
+```
+
+#### PCA图
+
+```{r, eval=FALSE}
+BiocManager::install('ggfortify')
+```
+
+画一条线，能大致把实验组和对照组分开
+
+```{r}
+library(ggfortify)
+
+df <- as.data.frame(t(exprSet))
+df$group <- group_list 
+autoplot(prcomp(df[, 1:(ncol(df) - 1)]), data = df, colour = 'group')
+```
+
+视频中并未展示如下代码
+
+```{r}
+library("FactoMineR") # 画主成分分析图需要加载这两个包
+library("factoextra")
+
+# 现在df最后一列是group_list，需要重新赋值给一个dat.pca，这个矩阵是不含有分组信息的
+dat.pca <- PCA(df[, -ncol(df)], graph = FALSE)
+
+fviz_pca_ind(dat.pca,
+             geom.ind = "point", # show points only (nbut not "text")
+             col.ind = group_list, # color by groups
+             # palette = c("#00AFBB", "#E7B800"),
+             addEllipses = TRUE, # Concentration ellipses
+             legend.title = "Groups"
+)
+```
+
+### 差异分析(limma)
+
+此部分代码参考：[用limma对芯片数据做差异分析](http://www.bio-info-trainee.com/bioconductor_China/software/limma.html)
+
+如该网页无法打开，可打开[本地文件](./用limma对芯片数据做差异分析.html)
+
+```{r}
+suppressMessages(library(limma))
+```
+
+制作分组矩阵
+
+```{r}
+design <- model.matrix(~ 0 + factor(group_list))
+
+# 查看一下顺序有没有搞反
+colnames(design) <- levels(factor(group_list))
+rownames(design) <- colnames(exprSet)
+design
+```
+
+制作差异比较矩阵
+
+```{r}
+# 查看一下顺序有没有搞反
+contrast.matrix <- makeContrasts(paste0(unique(group_list), 
+                                        collapse = "-"),
+                                 levels = design)
+
+# 这个矩阵声明，我们要把progres.组跟stable进行差异分析比较
+contrast.matrix
+```
+
+进行差异分析
+
+```{r}
+# step1
+fit <- lmFit(exprSet, design)
+
+# step2
+fit2 <- contrasts.fit(fit, contrast.matrix)
+
+# 这一步很重要，大家可以自行看看效果
+fit2 <- eBayes(fit2)  ## default no trend !!!
+#eBayes() with trend=TRUE
+
+# step3
+tempOutput <- topTable(fit2, coef = 1, n = Inf)
+nrDEG <- na.omit(tempOutput)
+head(nrDEG)
+```
+
+再检查一下差异比较矩阵有无问题
+
+差异分析结果显示，`TBC1D2B`在实验组低表达
+
+在原始表达矩阵中查看后发现确实如此，那么差异比较矩阵没有问题
+
+```{r}
+temp_check <- exprSet["TBC1D2B", ]
+
+names(temp_check) <- group_list
+
+temp_check
+```
+
+```{r, eval=FALSE}
+write.csv(nrDEG,"DEG_limma_notrend.csv", quote = F)
+```
+
+#### 热图
+
+根据adj.P选取前25个基因
+
+```{r}
+suppressMessages(library(dplyr))
+
+gene4heatmap <- nrDEG %>% 
+  arrange(adj.P.Val) %>% 
+  slice(1:25) %>% 
+  rownames()
+```
+
+推荐使用这个包(?)
+
+```{r}
+library(pheatmap)
+
+heatmap_matrix <- exprSet[gene4heatmap, ]
+heatmap_matrix <- t(scale(t(heatmap_matrix)))
+
+pheatmap(heatmap_matrix)
+```
+
+```{r}
+gplots::heatmap.2(heatmap_matrix)
+```
+
+```{r}
+heatmap(heatmap_matrix)
+```
+
+#### 火山图
+
+```{r}
+with(nrDEG, plot(logFC, -log10(P.Value), pch=20, 
+                 main = "Volcano plot"))
+```
+
+```{r}
+logFC_cutoff <- with(nrDEG, mean(abs(logFC)) + 2 * sd(abs(logFC)))
+
+nrDEG$change <- as.factor(
+  ifelse(nrDEG$P.Value < 0.05 & abs(nrDEG$logFC) > logFC_cutoff,
+         ifelse(nrDEG$logFC > logFC_cutoff, 'UP', 'DOWN'), 'NOT'))
+
+this_tile <- paste0('Cutoff for logFC is ', round(logFC_cutoff, 3),
+                    '\nThe number of up gene is ', nrow(nrDEG[nrDEG$change =='UP', ]),
+                    '\nThe number of down gene is ', nrow(nrDEG[nrDEG$change =='DOWN', ]))
+
+ggplot(data = nrDEG, aes(x = logFC, y = -log10(P.Value),  color = change)) +
+  geom_point(alpha = 0.4, size = 1.75) +
+  theme_set(theme_set(theme_bw(base_size = 20)))+
+  xlab("log2 fold change") + 
+  ylab("-log10 p-value") +
+  ggtitle(this_tile) + 
+  theme(plot.title = element_text(size = 15, hjust = 0.5)) +
+  scale_colour_manual(values = c('blue','black','red'))  ## corresponding to the levels(nrDEG$change)
+```
+
