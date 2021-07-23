@@ -4,7 +4,7 @@ author: Bin Xu
 date: '2021-07-17'
 slug: take-os-pfs-ttr-correctly
 categories: ["统计"]
-tags: ["OS", "PFS", "TTR"]
+tags: ["OS", "PFS", "TTR", "会议"]
 ---
 
 摘录自**复旦大学附属中山医院肿瘤免疫讲坛（第十二期）**，讲者为**复旦大学附属中山医院 梁斐教授**
