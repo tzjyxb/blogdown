@@ -33,9 +33,9 @@ languages:
         weight: 1
         menu:
             main:
-                - name: Posts
-                  url: post
-                  weight: 1
+                # - name: Posts
+                #   url: post
+                #   weight: 1
                 - name: Archive
                   url: archives
                   weight: 10
@@ -95,7 +95,11 @@ params:
         #   url: "https://github.com/adityatelange/hugo-PaperMod"
         # - name: KoFi
         #   url: "https://ko-fi.com/adityatelange"
-        - name: RsS
+        - name: email
+          url: "mailto:xubingoo@outlook.com"
+        - name: twitter
+          url: "https://twitter.com/xubingoo"
+        - name: RSS
           url: "index.xml"
     
     comments:
