@@ -97,6 +97,13 @@ params:
         #   url: "https://ko-fi.com/adityatelange"
         - name: RsS
           url: "index.xml"
+    
+    utteranc:
+        enable: true
+        repo: "tzjyxb/blogdown"
+        issueTerm: "pathname"
+        theme: "github-light"
+
 taxonomies:
     category: categories
     tag: tags
