@@ -1,9 +1,10 @@
-{{- if .Site.Params.utteranc.enable -}}
+{{- if .Site.Params.comments.utteranc.enable }}
 <script src="https://utteranc.es/client.js"
-        repo="{{ .Site.Params.utteranc.repo }}"
-        issue-term="{{ .Site.Params.utteranc.issueTerm }}"
-        theme="{{ .Site.Params.utteranc.theme }}"
+        repo="{{ .Site.Params.comments.utteranc.repo }}"
+        label="{{ .Site.Params.comments.utteranc.label }}"
+        issue-term="{{ .Site.Params.comments.utteranc.issueTerm }}"
+        theme="{{ .Site.Params.comments.utteranc.theme }}"
         crossorigin="anonymous"
         async>
 </script>
-{{- end -}}
+{{- end }}

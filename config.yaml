@@ -98,11 +98,13 @@ params:
         - name: RsS
           url: "index.xml"
     
-    utteranc:
-        enable: true
-        repo: "tzjyxb/blogdown"
-        issueTerm: "pathname"
-        theme: "github-light"
+    comments:
+        utteranc:
+            enable: true
+            repo: "tzjyxb/blogdown"
+            label: "blogComment"
+            issueTerm: "pathname"
+            theme: "github-light"
 
 taxonomies:
     category: categories
