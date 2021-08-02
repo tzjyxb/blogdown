@@ -1,5 +1,5 @@
 ---
-title: GEO database mining
+title: GEO database mining (array data)
 author: 'Bin Xu'
 date: '2021-07-17'
 slug: geo-database-mining
@@ -598,9 +598,7 @@ fviz_pca_ind(dat.pca,
 )
 ```
 
-### 差异分析
-
-#### 芯片数据(limma)
+## 差异分析(芯片数据)
 
 此部分代码参考：[用limma对芯片数据做差异分析](http://www.bio-info-trainee.com/bioconductor_China/software/limma.html)
 
@@ -676,7 +674,8 @@ head(nrDEG)
 选择差异表达基因
 
 > log2FC中的FC即 fold change，表示两样品（组）间表达量的比值，对其取以2为底的对数之后即为log2FC。一般默认取log2FC绝对值大于1为差异基因的筛选标准；
-FDR即False Discovery Rate，错误发现率，是通过对差异显著性p值（p-value）进行校正得到的。由于转录组测序的差异表达分析是对大量的基因表达值进行独立的统计假设检验，会存在假阳性问题，因此在进行差异表达分析过程中，采用了公认的Benjamini-Hochberg校正方法对原有假设检验得到的显著性p值（p-value）进行校正，并最终采用FDR作为差异表达基因筛选的关键指标。一般取FDR<0.01或者0.05作为默认标准。
+
+> FDR即False Discovery Rate，错误发现率，是通过对差异显著性p值（p-value）进行校正得到的。由于转录组测序的差异表达分析是对大量的基因表达值进行独立的统计假设检验，会存在假阳性问题，因此在进行差异表达分析过程中，采用了公认的Benjamini-Hochberg校正方法对原有假设检验得到的显著性p值（p-value）进行校正，并最终采用FDR作为差异表达基因筛选的关键指标。一般取FDR<0.01或者0.05作为默认标准。
 
 ```{r}
 suppressMessages(library(dplyr))
@@ -709,15 +708,11 @@ mean(temp_check[names(temp_check) != "progres."])
 write.csv(DEG,"DEG_limma.csv", quote = F)
 ```
 
-#### 转录组测序数据
-
-挖坑
-
 ### 差异分析结果可视化
 
 #### 热图
 
-根据adj.P(?)选取前25个基因
+根据adj.P选取前25个基因
 
 ```{r}
 suppressMessages(library(dplyr))

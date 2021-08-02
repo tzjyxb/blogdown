@@ -1,5 +1,5 @@
 ---
-title: GEO database mining
+title: GEO database mining (array data)
 author: 'Bin Xu'
 date: '2021-07-17'
 slug: geo-database-mining
@@ -792,8 +792,9 @@ fviz_pca_ind(dat.pca,
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-27-1.png" width="672" /></p>
 </div>
 </div>
-<div id="差异分析limma" class="section level3">
-<h3>差异分析(limma)</h3>
+</div>
+<div id="差异分析芯片数据" class="section level2">
+<h2>差异分析(芯片数据)</h2>
 <p>此部分代码参考：<a href="http://www.bio-info-trainee.com/bioconductor_China/software/limma.html">用limma对芯片数据做差异分析</a></p>
 <p>如该网页无法打开，可打开<a href="./用limma对芯片数据做差异分析.html">本地文件</a></p>
 <pre class="r"><code>suppressMessages(library(limma))</code></pre>
@@ -844,6 +845,54 @@ contrast.matrix</code></pre>
 ## Levels     progres.-stable
 ##   progres.               1
 ##   stable                -1</code></pre>
+<pre class="r"><code># 如果顺序搞反，需要提前设定level
+group_listx &lt;- factor(group_list, levels = c(&quot;progres.&quot;, &quot;stable&quot;))
+
+designx &lt;- model.matrix(~ 0 + group_listx)
+
+# 查看一下顺序有没有搞反
+colnames(designx) &lt;- levels(group_listx)
+rownames(designx) &lt;- colnames(exprSet)
+designx</code></pre>
+<pre><code>##           progres. stable
+## CLL11.CEL        1      0
+## CLL12.CEL        0      1
+## CLL13.CEL        1      0
+## CLL14.CEL        1      0
+## CLL15.CEL        1      0
+## CLL16.CEL        1      0
+## CLL17.CEL        0      1
+## CLL18.CEL        0      1
+## CLL19.CEL        1      0
+## CLL20.CEL        0      1
+## CLL21.CEL        1      0
+## CLL22.CEL        0      1
+## CLL23.CEL        1      0
+## CLL24.CEL        0      1
+## CLL2.CEL         0      1
+## CLL3.CEL         1      0
+## CLL4.CEL         1      0
+## CLL5.CEL         1      0
+## CLL6.CEL         1      0
+## CLL7.CEL         1      0
+## CLL8.CEL         1      0
+## CLL9.CEL         0      1
+## attr(,&quot;assign&quot;)
+## [1] 1 1
+## attr(,&quot;contrasts&quot;)
+## attr(,&quot;contrasts&quot;)$group_listx
+## [1] &quot;contr.treatment&quot;</code></pre>
+<pre class="r"><code># 查看一下顺序有没有搞反
+contrast.matrix.x &lt;- makeContrasts(paste0(levels(group_listx), 
+                                          collapse = &quot;-&quot;),
+                                   levels = designx)
+
+# 这个矩阵声明，我们要把progres.组跟stable进行差异分析比较
+contrast.matrix.x</code></pre>
+<pre><code>##           Contrasts
+## Levels     progres.-stable
+##   progres.               1
+##   stable                -1</code></pre>
 <p>进行差异分析</p>
 <pre class="r"><code># step1
 fit &lt;- lmFit(exprSet, design)
@@ -856,6 +905,8 @@ fit2 &lt;- eBayes(fit2)  ## default no trend !!!
 #eBayes() with trend=TRUE
 
 # step3
+# 默认的p value校正方法为：adjust.method=&quot;BH&quot;
+# coef的选择？
 tempOutput &lt;- topTable(fit2, coef = 1, n = Inf)
 nrDEG &lt;- na.omit(tempOutput)
 head(nrDEG)</code></pre>
@@ -866,21 +917,40 @@ head(nrDEG)</code></pre>
 ## SH3BP2  -1.3835699 4.463438 -5.735847 1.040396e-05 0.02282628 3.161205
 ## GPM6A    2.5471980 6.915045  5.043623 5.260547e-05 0.08915221 1.822622
 ## YTHDC2  -0.5187135 7.602354 -4.873743 7.877050e-05 0.08915221 1.485155</code></pre>
+<p>选择差异表达基因</p>
+<blockquote>
+<p>log2FC中的FC即 fold change，表示两样品（组）间表达量的比值，对其取以2为底的对数之后即为log2FC。一般默认取log2FC绝对值大于1为差异基因的筛选标准；</p>
+</blockquote>
+<blockquote>
+<p>FDR即False Discovery Rate，错误发现率，是通过对差异显著性p值（p-value）进行校正得到的。由于转录组测序的差异表达分析是对大量的基因表达值进行独立的统计假设检验，会存在假阳性问题，因此在进行差异表达分析过程中，采用了公认的Benjamini-Hochberg校正方法对原有假设检验得到的显著性p值（p-value）进行校正，并最终采用FDR作为差异表达基因筛选的关键指标。一般取FDR&lt;0.01或者0.05作为默认标准。</p>
+</blockquote>
+<pre class="r"><code>suppressMessages(library(dplyr))
+
+DEG &lt;- nrDEG %&gt;% 
+  filter(abs(logFC) &gt; 1 &amp; adj.P.Val &lt; 0.05) # or &lt; 0.01
+
+head(DEG)</code></pre>
+<pre><code>##             logFC  AveExpr         t      P.Value  adj.P.Val        B
+## TBC1D2B -1.028463 5.620700 -5.837748 8.228423e-06 0.02282628 3.352549
+## DLEU1    1.830155 6.950685  5.741354 1.027259e-05 0.02282628 3.171586
+## SH3BP2  -1.383570 4.463438 -5.735847 1.040396e-05 0.02282628 3.161205</code></pre>
 <p>再检查一下差异比较矩阵有无问题</p>
 <p>差异分析结果显示，<code>TBC1D2B</code>在实验组低表达</p>
 <p>在原始表达矩阵中查看后发现确实如此，那么差异比较矩阵没有问题</p>
 <pre class="r"><code>temp_check &lt;- exprSet[&quot;TBC1D2B&quot;, ]
-
 names(temp_check) &lt;- group_list
 
-temp_check</code></pre>
-<pre><code>## progres.   stable progres. progres. progres. progres.   stable   stable 
-## 5.191501 6.584007 5.161696 5.021954 4.829027 5.473421 6.193658 6.835712 
-## progres.   stable progres.   stable progres.   stable   stable progres. 
-## 5.218793 6.617105 5.210030 6.197718 4.783289 5.245601 6.652838 5.247241 
-## progres. progres. progres. progres. progres.   stable 
-## 5.406573 5.832655 5.447913 4.812068 5.817831 5.874775</code></pre>
-<pre class="r"><code>write.csv(nrDEG,&quot;DEG_limma_notrend.csv&quot;, quote = F)</code></pre>
+median(temp_check[names(temp_check) == &quot;progres.&quot;])</code></pre>
+<pre><code>## [1] 5.214412</code></pre>
+<pre class="r"><code>median(temp_check[names(temp_check) != &quot;progres.&quot;])</code></pre>
+<pre><code>## [1] 6.390862</code></pre>
+<pre class="r"><code>mean(temp_check[names(temp_check) == &quot;progres.&quot;])</code></pre>
+<pre><code>## [1] 5.246714</code></pre>
+<pre class="r"><code>mean(temp_check[names(temp_check) != &quot;progres.&quot;])</code></pre>
+<pre><code>## [1] 6.275177</code></pre>
+<pre class="r"><code>write.csv(DEG,&quot;DEG_limma.csv&quot;, quote = F)</code></pre>
+<div id="差异分析结果可视化" class="section level3">
+<h3>差异分析结果可视化</h3>
 <div id="热图" class="section level4">
 <h4>热图</h4>
 <p>根据adj.P选取前25个基因</p>
@@ -897,17 +967,17 @@ heatmap_matrix &lt;- exprSet[gene4heatmap, ]
 heatmap_matrix &lt;- t(scale(t(heatmap_matrix)))
 
 pheatmap(heatmap_matrix)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-35-1.png" width="672" /></p>
-<pre class="r"><code>gplots::heatmap.2(heatmap_matrix)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-36-1.png" width="672" /></p>
-<pre class="r"><code>heatmap(heatmap_matrix)</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-37-1.png" width="672" /></p>
+<pre class="r"><code>gplots::heatmap.2(heatmap_matrix)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-38-1.png" width="672" /></p>
+<pre class="r"><code>heatmap(heatmap_matrix)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-39-1.png" width="672" /></p>
 </div>
 <div id="火山图" class="section level4">
 <h4>火山图</h4>
 <pre class="r"><code>with(nrDEG, plot(logFC, -log10(P.Value), pch=20, 
                  main = &quot;Volcano plot&quot;))</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-38-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-40-1.png" width="672" /></p>
 <pre class="r"><code>logFC_cutoff &lt;- with(nrDEG, mean(abs(logFC)) + 2 * sd(abs(logFC)))
 
 nrDEG$change &lt;- as.factor(
@@ -926,7 +996,7 @@ ggplot(data = nrDEG, aes(x = logFC, y = -log10(P.Value),  color = change)) +
   ggtitle(this_tile) + 
   theme(plot.title = element_text(size = 15, hjust = 0.5)) +
   scale_colour_manual(values = c(&#39;blue&#39;,&#39;black&#39;,&#39;red&#39;))  ## corresponding to the levels(nrDEG$change)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-39-1.png" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-41-1.png" width="672" /></p>
 </div>
 </div>
 </div>

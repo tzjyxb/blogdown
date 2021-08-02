@@ -13,6 +13,12 @@ tags:
 <script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
 
 
+<div id="将excel导入后的数字转换为日期" class="section level2">
+<h2>将Excel导入后的数字转换为日期</h2>
+<pre class="r"><code>openxlsx::convertToDate(42705)
+
+[1]&quot;2016-12-01&quot;</code></pre>
+</div>
 <div id="生存分析" class="section level2">
 <h2>生存分析</h2>
 <pre class="r"><code># 生存数据示例
@@ -82,4 +88,151 @@ uni_logrank_batch_OS[uni_logrank_batch_OS &lt; 0.05]
 uni_logrank_batch_RFS &lt;- sapply(vars, uni_logrank, &quot;RFS&quot;, df)
 uni_logrank_batch_RFS[uni_logrank_batch_RFS &lt; 0.05]</code></pre>
 </div>
+</div>
+<div id="roc曲线" class="section level2">
+<h2>ROC曲线</h2>
+<pre class="r"><code>library(dplyr)
+library(ggplot2)
+library(ggsci)
+
+# library(showtext)
+# 
+# font_add(&quot;yahei&quot;,&quot;msyh.ttc&quot;)
+# showtext_auto(enable = TRUE)
+
+# ggroc()的用法在为知笔记
+ggroc(list(totalT = roc_naiveCD8T_totalT,
+           CD8T = roc_naiveCD8T_CD8T),
+      legacy.axes = TRUE) + 
+  geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), # 添加auc = 0.5的线
+               color = &quot;darkgrey&quot;, linetype = &quot;dashed&quot;) +
+  scale_color_nejm(labels = c(&quot;% Naïve CD8+T cells of T cells:          0.742 (0.597-0.887), P = 0.002&quot;, 
+                              &quot;% Naïve CD8+T cells of CD8+T cells: 0.725 (0.579-0.871), P = 0.004&quot;)) +
+  theme_light() + 
+  theme(legend.position = c(1,0), 
+        legend.justification = c(1,0),
+        legend.title.align = 1,
+        legend.background = element_blank(),
+        legend.key = element_blank()) + 
+  guides(color = guide_legend(title = &quot;AUROC (95% CI), P value&quot;))
+  
+ggsave(&quot;figure/roc.pdf&quot;, 
+       width = 7, height = 7, units = &quot;in&quot;)</code></pre>
+<p><img src="images/roc.png" /></p>
+</div>
+<div id="百分比条形图" class="section level2">
+<h2>百分比条形图</h2>
+<pre class="r"><code># 导入数据 dat_waterfall_chart
+load(&quot;data/dat_waterfall_chart.RData&quot;)
+
+head(dat_waterfall_chart)</code></pre>
+<p>“≥”在图中的写法参考自<a href="https://stackoverflow.com/questions/13192984/displaying-a-greater-than-or-equal-sign">stackoverflow</a></p>
+<pre class="r"><code>suppressMessages(library(dplyr))
+library(ggplot2)
+library(ggsci)
+
+dat_waterfall_chart &lt;- dat_waterfall_chart %&gt;% 
+  mutate(group_response = ifelse(tumor.response %in% c(&quot;CR&quot;, &quot;PR&quot;), 
+                                 &quot;Responsder&quot;, &quot;Nonresponder&quot;))
+
+prop.table(table(dat_waterfall_chart$group_response, dat_waterfall_chart$group_naiveCD8T_totalT,
+                 dnn = list(&quot;response&quot;, &quot;totalT&quot;)),
+           margin = 2)
+
+dat_bar &lt;- tibble(response = rep(c(&quot;Nonresponder&quot;, &quot;Responder&quot;), times = 2),
+                                  totalT = rep(c(&quot;high&quot;, &quot;low&quot;), times = 1, each = 2 ),
+                                  pct = c(80, 20, 37, 63))
+
+ggplot(dat_bar, aes(x = totalT, y = pct, fill = response)) +
+  geom_bar(stat = &quot;identity&quot;, 
+           width = 0.8) + # 设置条形的宽度和间距 默认值为0.9
+  scale_y_continuous(expand = c(0, 0), # y轴底部从原点开始 不留空白
+                     name = &quot;Proportion of Patients (%)&quot;,
+                     limits = c(0, 108)) + # 为了添加的&quot;*&quot;能够显示完整 扩展y轴范围
+  scale_x_discrete(labels = c(expression(phantom(x) &gt;= &quot;6.24%&quot;), # &quot;≥&quot;在图中的写法
+                              &quot;&lt; 6.24%&quot;),
+                   name = &quot;Naïve CD8+ T cells / T cells ratio&quot;) + 
+  theme_classic() + 
+  theme(legend.position = &quot;top&quot;, 
+        legend.background = element_blank(), # 移除图例整体的边框
+        legend.key = element_blank(), # 移除每个图例项目周围的边框
+        legend.title = element_blank(),
+        axis.title.x = element_text(size = 10)) + # 缩小字体 否则导出时字体会溢出
+  scale_fill_nejm() + 
+  annotate(&quot;text&quot;, x = 1, y = c(60, 10),
+           label = c(&quot;80.0%&quot;, &quot;20.0%&quot;),
+           color = &quot;white&quot;) + 
+  annotate(&quot;text&quot;, x = 2, y = c(37/2 + 63, 63/2),
+           label = c(&quot;37.0%&quot;, &quot;63.0%&quot;),
+           color = &quot;white&quot;) + 
+  annotate(&quot;segment&quot;, x = 1, xend = 2, y= 102.5, yend = 102.5) + 
+  annotate(&quot;text&quot;, x = (1+2)/2, y = 105,
+           label = &quot;**&quot;, size = 5)</code></pre>
+<pre class="r"><code>ggsave(&quot;figure/Figure_bar_totalT.png&quot;, 
+       width = 3, height = 4, units = &quot;in&quot;)</code></pre>
+<p><img src="images/bar_plot_pct.png" alt="bar_plot_pct" style="zoom:50%;" /></p>
+</div>
+<div id="瀑布图" class="section level2">
+<h2>瀑布图</h2>
+<pre class="r"><code># 导入数据 dat_waterfall_chart
+load(&quot;data/dat_waterfall_chart.RData&quot;)
+
+head(dat_waterfall_chart)</code></pre>
+<p>“≥”在图中的写法参考自<a href="https://stackoverflow.com/questions/13192984/displaying-a-greater-than-or-equal-sign">stackoverflow</a></p>
+<pre class="r"><code>suppressMessages(library(dplyr))
+library(ggplot2)
+library(ggsci)
+
+ggplot(data = dat_waterfall_chart,
+       aes(x = No., y = change, fill = group_naiveCD8T_totalT)) + 
+  geom_bar(stat = &quot;identity&quot;, position = &quot;identity&quot;, 
+           width = 0.8) + # 设置条形的宽度和间距 默认值为0.9
+  geom_hline(yintercept = 0) + 
+  geom_hline(yintercept = c(-30, 20, -100), 
+             linetype = 2, size = 1.05) + 
+  # geom_text(aes(label = T_response, color = T_response), 
+  #           # hjust = -0.2,
+  #           angle = 90) + 
+  annotate(&quot;text&quot;, x = -Inf, y = -24, hjust = -0.1,
+           label = &quot;# new lesions&quot;, 
+           color = &quot;#BC3C29FF&quot;, size = 4.5) + 
+  # 分开添加tumor response的注解
+  annotate(&quot;text&quot;, x = 1:14, y = -15, angle = 90, hjust = 0,
+           label = dat_waterfall_chart %&gt;% 
+             filter(change &gt;= 0) %&gt;% 
+             pull(T_response),
+           color = dat_waterfall_chart %&gt;% 
+             filter(change &gt;= 0) %&gt;% 
+             pull(colors)) + 
+  annotate(&quot;text&quot;, x = 15:47, y = 2, angle = 90, hjust = 0,
+           label = dat_waterfall_chart %&gt;% 
+             filter(change &lt; 0) %&gt;% 
+             pull(T_response),
+           color = dat_waterfall_chart %&gt;% 
+             filter(change &lt; 0) %&gt;% 
+             pull(colors)) + 
+  scale_y_continuous(limits = c(-100, 30), 
+                     breaks = seq(-100, 20, 20),
+                     name = &quot;Change From Baseline (%)&quot;) +
+  theme_classic(base_size = 12) + # 默认字体大小为12
+  # guides(color = &quot;none&quot;) + # 取消映射给color的图例
+  labs(fill = &quot;Naïve CD8+ T cells / T cells ratio&quot;) + # 设置映射给fill的图例标题
+  theme(legend.position = c(0.16, 0.18),
+        legend.background = element_blank(), # 移除图例整体的边框
+        legend.key = element_blank(), # 移除每个图例项目周围的边框
+        axis.text.x = element_blank(), # 移除x轴标签
+        axis.title.x = element_blank(), # 移除x轴标题
+        axis.line.x = element_blank(), # 移除x轴横线
+        axis.ticks.x = element_blank()) + # 移除x轴刻度线
+  # scale_color_aaas() + 
+  scale_fill_nejm(labels = c(expression(phantom(x) &gt;= &quot;6.24%&quot;), # &quot;≥&quot;在图中的写法
+                             &quot;&lt; 6.24%&quot;))</code></pre>
+<p><img src="images/waterfall_chart.png" /></p>
+<pre class="r"><code># 保存图片
+ggsave(&quot;figure/Figure_Change_totalT.pdf&quot;, 
+       width = 10.5, height = 4, units = &quot;in&quot;)
+
+# 本例中用到的颜色
+scales::show_col(pal_nejm()(9))
+scales::show_col(pal_npg()(9))</code></pre>
 </div>
